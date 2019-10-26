@@ -25,35 +25,41 @@ var game = new Phaser.Game(config);
 
 function preload() {
   this.load.image('background', 'assets/grd.png');
-  this.load.image('ship', 'assets/spaceShips_001.png');
-  this.load.image('otherPlayer', 'assets/dude.png');
+  this.load.image('ship', 'assets/dude2.png');
+  this.load.image('otherPlayer', 'assets/dude3.png');
   this.load.image('star', 'assets/star_gold.png');
 }
 
 function create() {
   var self = this;
+  //this.allowInput = true;
   this.add.image(750,750,'background');
   this.socket = io();
   this.players = this.add.group();
   this.cam=this.cameras.main.setBounds(0,0,1000,1000).setName('main');
-
-  this.blueScoreText = this.add.text(16, 16, '', { fontSize: '32px', fill: '#0000FF' });
-  this.redScoreText = this.add.text(584, 16, '', { fontSize: '32px', fill: '#FF0000' });
+  this.minimap = this.cameras.add(00, 00, 150, 150).setZoom(0.15).setName('mini');
+  this.cursorsa = this.input.keyboard.createCursorKeys();
+  this.a=0;
+	
+	var t = this.add.text(600, 15, "Leaderboard:", { font: "32px Arial", fill: "#ffffff", align: "center" });
+    t.fixedToCamera = true;
+    t.setScrollFactor(0);
+  //this.blueScoreText = this.add.text(16, 16, '', { fontSize: '32px', fill: '#0000FF' });
+  //this.redScoreText = this.add.text(584, 16, '', { fontSize: '32px', fill: '#FF0000' });
 
   this.socket.on('currentPlayers', function (players) {
     Object.keys(players).forEach(function (id) {
       if (players[id].team === 'red') {
-        displayPlayers(self, players[id], 'star');
-		//this.cam.startFollow(players[id]);
-      } else {
         displayPlayers(self, players[id], 'otherPlayer');
+		
+      } else {
+        displayPlayers(self, players[id], 'ship');
       }
     });
   });
 
   this.socket.on('newPlayer', function (playerInfo) {
-    displayPlayers(self, playerInfo, 'otherPlayer');
-	//this.cam.startFollow(playerInfo);
+    displayPlayers(self, playerInfo, 'ship');
   });
 
   this.socket.on('disconnect', function (playerId) {
@@ -63,33 +69,46 @@ function create() {
       }
     });
   });
-
+  /*this.socket.on('inputchange', function () {
+	  self.allowInput = (!self.allowInput);
+	  console.log(self.allowInput);
+  });*/
   this.socket.on('playerUpdates', function (players) {
-    Object.keys(players).forEach(function (id) {
+    
+	Object.keys(players).forEach(function (id) {
       self.players.getChildren().forEach(function (player) {
         if (players[id].playerId === player.playerId) {
           player.setRotation(players[id].rotation);
           player.setPosition(players[id].x, players[id].y);
         }
 		if (players[id].playerId === self.socket.id) {
+		  if (self.cursorsa.space.isDown) {
+			console.log(players[id].x);
+		  }
 			self.cam.startFollow(players[self.socket.id]);
+			self.minimap.startFollow(players[self.socket.id]);
 		}
       });
     });
   });
 
   this.socket.on('updateScore', function (scores) {
-    self.blueScoreText.setText('Blue: ' + scores.blue);
-    self.redScoreText.setText('Red: ' + scores.red);
+    //self.blueScoreText.setText('Blue: ' + scores.blue);
+    //self.redScoreText.setText('Red: ' + scores.red);
   });
 
   this.socket.on('starLocation', function (starLocation) {
 	console.log('star spawned');
-    if (!self.star) {
-      self.star = self.add.image(starLocation.x, starLocation.y, 'star');
-    } else {
-      self.star.setPosition(starLocation.x, starLocation.y);
-    }
+	//if(starLocation.x!=-100&&starLocation.y!=-100){
+		if (!self.star) {
+		  self.star = self.add.image(starLocation.x, starLocation.y, 'star');
+		} else {
+		  self.star.setPosition(starLocation.x, starLocation.y);
+		}
+	//}else{
+		//if(self.star)
+			//self.star.destory();
+	//}
   });
 
   this.cursors = this.input.keyboard.createCursorKeys();
@@ -97,6 +116,7 @@ function create() {
   this.rightKeyPressed = false;
   this.upKeyPressed = false;
   this.downKeyPressed = false;
+  this.spaceKeyPressed = false;
   //lol
   //this.cam.startFollow(this.players[self.socket.id]);
 }
@@ -106,6 +126,7 @@ function update() {
   const right = this.rightKeyPressed;
   const up = this.upKeyPressed;
   const down = this.downKeyPressed;
+  const space = this.spaceKeyPressed;
 
   if (this.cursors.left.isDown) {
     this.leftKeyPressed = true;
@@ -124,9 +145,16 @@ function update() {
     this.upKeyPressed = false;
     this.downKeyPressed = false;
   }
+  
+  if (this.cursors.space.isDown) {
+	  this.spaceKeyPressed = true;
+  }else{
+	  this.spaceKeyPressed = false;
+  }
+  
 
-  if (left !== this.leftKeyPressed || right !== this.rightKeyPressed || up !== this.upKeyPressed || down !== this.downKeyPressed) {
-    this.socket.emit('playerInput', { left: this.leftKeyPressed , right: this.rightKeyPressed, up: this.upKeyPressed, down: this.downKeyPressed });
+  if (left !== this.leftKeyPressed || right !== this.rightKeyPressed || up !== this.upKeyPressed || down !== this.downKeyPressed || space !== this.spaceKeyPressed) {
+    this.socket.emit('playerInput', { left: this.leftKeyPressed , right: this.rightKeyPressed, up: this.upKeyPressed, down: this.downKeyPressed , space: this.spaceKeyPressed });
   }
   //this.cam.startFollow(this.players[self.socket.id]);
   //this.cam.main.scrollX = this.players[this.socket.id].x;

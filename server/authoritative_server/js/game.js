@@ -35,9 +35,8 @@ function preload() {
 function create() {
   const self = this;
   this.players = this.physics.add.group();
-  worldbound = this.physics.add.staticGroup();
-  worldbound.create(500,-750, 'assets/rainbow.png');
-  
+  this.allowInputs = true;
+  this.allowTransfer = true;
   
   this.physics.world.setBoundsCollision(true,true,true,true);
 
@@ -47,17 +46,32 @@ function create() {
   };
 
   this.star = this.physics.add.image(randomPosition(1000), randomPosition(1000), 'star');
-  this.physics.add.collider(this.players);
-  this.physics.add.collider(this.players,worldbound);
-
+ 
+  this.physics.add.collider(this.players, this.players, function(player1, player2) {
+	//console.log(players[player1.playerId].team);
+	if (self.allowTransfer){
+	//io.emit('inputchange');
+	self.allowTransfer = false;
+	if (players[player1.playerId].team != players[player2.playerId].team){
+		self.allowInputs = false;
+		//players[player1.playerId].y = randomPosition(1000);
+		//players[player1.playerId].x = randomPosition(1000);
+		//console.log(players[player1.playerId].x);
+		io.emit('playerUpdates', players);
+		var temp = players[player1.playerId].team;
+		players[player1.playerId].team = players[player2.playerId].team;
+		players[player2.playerId].team = temp;
+		io.emit('currentPlayers', players);
+	}
+	//console.log(players[player1.playerId].x);
+	//console.log(players[player1.playerId].team);
+	}
+  });
+  
   this.physics.add.overlap(this.players, this.star, function (star, player) {
-    //if (players[player.playerId].team === 'red') {
-      //self.scores.red += 10;
-    //} else {
-      //self.scores.blue += 10;
-    //}
+    
 	players[player.playerId].team = 'red';
-    self.star.setPosition(-100, -100);
+    self.star.setPosition(-500, -500);
 	io.emit('currentPlayers', players);
     io.emit('updateScore', self.scores);
     io.emit('starLocation', { x: self.star.x, y: self.star.y });
@@ -76,7 +90,8 @@ function create() {
         left: false,
         right: false,
         up: false,
-		down: false
+		down: false,
+		space: false
       }
     };
     /// add player to server
@@ -112,9 +127,11 @@ function create() {
 }
 
 function update() {
+	
   this.players.getChildren().forEach((player) => {
-    const input = players[player.playerId].input;
-  if (players[player.playerId].team == 'blue'){
+  const input = players[player.playerId].input;
+  console.log(this.allowInputs);
+  if (players[player.playerId].team == 'blue' && (this.allowInputs == true)){
     if (input.left) {
       player.setVelocityX(-200);
     } else if (input.right) {
@@ -125,14 +142,25 @@ function update() {
 
     if (input.up) {
 	  //this.physics.velocityFromRotation(player.rotation + 1.5, 200, player.body.acceleration);
-      player.setVelocityY(-200);
+            player.setVelocityY(-200);
     } else if (input.down) {
-	  player.setVelocityY(200);
+			player.setVelocityY(200);
+		
 	} else {
       player.setVelocityY(0);
     }
+	
+	//if (input.space) {
+		//player.
+			
+	//}
   }
-  } else if (players[player.playerId].team == 'red'){
+  else if (players[player.playerId].team == 'blue' && (this.allowInputs == false)){
+	player.setVelocityX(0);
+	player.setVelocityY(0);
+	
+  }
+  else if (players[player.playerId].team == 'red'){
 	if (input.left) {
       player.setVelocityX(-250);
     } else if (input.right) {
@@ -150,34 +178,48 @@ function update() {
       player.setVelocityY(0);
     }
   }
-  }
+  
 	//if(player.x>=0||player.x<=1000)
 		players[player.playerId].x = player.x;
 	//if(player.y>=0||player.y<=1000)
 		players[player.playerId].y = player.y;
     players[player.playerId].rotation = player.rotation;
-	if(player.y<0){
+	if(player.y<10){
 		players[player.playerId].y=10;
 		player.setVelocityY(10);
 	}
-	if(player.x<0){
+	if(player.x<10){
 		players[player.playerId].x=10;
 		player.setVelocityX(10);
 	}
-	if(player.y>1000){
+	if(player.y>990){
 		players[player.playerId].y=990;
 		player.setVelocityY(-10);
 	}
-	if(player.x>1000){
+	if(player.x>990){
 		players[player.playerId].x=990;
 		player.setVelocityX(-10);
 	}
   });
   //this.physics.world.wrap(this.players, 5);
   //this.physics.world.setBoundsCollision(true,true,true,true);
+  /*this.physics.add.collider(this.players, this.players, function(player1, player2) {
+	//console.log(players[player1.playerId].team);
+	if (players[player1.playerId].team != players[player2.playerId].team){
+		players[player1.playerId].y = randomPosition(1000);
+		players[player1.playerId].x = randomPosition(1000);
+		//console.log(players[player1.playerId].x);
+		//io.emit('playerUpdates', players);
+		var temp = players[player1.playerId].team;
+		players[player1.playerId].team = players[player2.playerId].team;
+		players[player2.playerId].team = temp;
+		io.emit('currentPlayers', players);
+	}
+	//console.log(players[player1.playerId].x);
+	//console.log(players[player1.playerId].team);
+  });*/
   io.emit('playerUpdates', players);
 }
-
 function randomPosition(max) {
   return Math.floor(Math.random() * max) + 50;
 }
@@ -208,7 +250,8 @@ function removePlayer(self, playerId) {
 		//console.log(players[player.playerId].team);
 		if (players[player.playerId].team === 'red'){
 			self.star.setPosition(players[player.playerId].x, players[player.playerId].y);
-			//console.log('func worked');
+			self.allowInputs = true;
+			console.log(this.allowInputs);
 			io.emit('starLocation', { x: self.star.x, y: self.star.y });
 		}
       player.destroy();
