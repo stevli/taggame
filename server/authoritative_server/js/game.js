@@ -131,6 +131,7 @@ function update() {
 	} else {
       player.setVelocityY(0);
     }
+  }
   } else if (players[player.playerId].team == 'red'){
 	if (input.left) {
       player.setVelocityX(-250);
