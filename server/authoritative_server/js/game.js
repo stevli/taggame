@@ -1,5 +1,5 @@
 const players = {};
-
+//asdfasf
 const config = {
   type: Phaser.HEADLESS,
   parent: 'phaser-example',
