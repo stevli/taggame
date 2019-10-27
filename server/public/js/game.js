@@ -18,9 +18,19 @@ var config = {
     },
   scene: {
     preload: preload,
-    create: create,
+    create: create,	
     update: update
-  }
+	//pageAlignHorizontally = true,
+	//pageAlignVertically = true
+	
+	
+  },
+  scale: {
+	  width: 800,
+  height: 600,
+        mode: Phaser.Scale.NONE,
+       autoCenter: Phaser.Scale.CENTER_BOTH
+    }
 };
 
 var game = new Phaser.Game(config);
@@ -30,7 +40,7 @@ var game = new Phaser.Game(config);
 function preload() {
   this.load.image('background', 'assets/grd.png');
   this.load.image('dude', 'assets/dude2.png');
-  this.load.image('bananaMan', 'assets/dude3.png');
+  this.load.image('bananaMan', 'assets/dude5.png');
   this.load.image('star', 'assets/banana.png');
   this.load.image('frozen', 'assets/dude4.png');
 }
@@ -39,6 +49,9 @@ function preload() {
 
 function create() {
   var self = this;
+  /*this.game.scale.pageAlignHorizontally = true;
+	this.game.scale.pageAlignVertically = true;
+	this.game.scale.refresh();*/
   this.add.image((mapSize / 2),(mapSize / 2),'background');
   this.socket = io();
   this.players = this.add.group();
@@ -71,6 +84,21 @@ function create() {
 			 displayPlayers(self, players[id], 'frozen');
 		 } else {
          displayPlayers(self, players[id], 'dude');
+      } 
+	  }
+    });
+  });
+  
+  this.socket.on('changeCurrentPlayers', function (players) {
+  Object.keys(players).forEach(function (id) {
+    if (players[id].team === 'red') {
+      changeTexture(self, players[id], 'bananaMan');
+	
+    } else if (players[id].team === 'blue') {
+	     if (players[id].isFrozen === true) {
+			 changeTexture(self, players[id], 'frozen');
+		 } else {
+         changeTexture(self, players[id], 'dude');
       } 
 	  }
     });
@@ -108,7 +136,9 @@ function create() {
   this.socket.on('updateScore', function (scores) {
 	//console.log(self.socket.id === scores.first.playerId);
     //console.log(scores.first + " " + scores.second + " " + scores.third);
-	if (scores.second === undefined){
+	if(scores.first === undefined){
+	}
+	else if (scores.second === undefined){
 		if (self.socket.id === scores.first.playerId){
 			//console.log("11");
 		    self.one.setText(scores.first.score);
@@ -205,29 +235,39 @@ function create() {
 }
 
 function update() {
+	//this.game.scale.pageAlignHorizontally = true;
+	//this.game.scale.pageAlignVertically = true;
+	//this.game.scale.refresh();
   const left = this.leftKeyPressed;
   const right = this.rightKeyPressed;
   const up = this.upKeyPressed;
   const down = this.downKeyPressed;
   const space = this.spaceKeyPressed;
 
+	if (this.cursors.left.isDown&&this.cursors.right.isDown){
+    this.leftKeyPressed = false;
+    this.rightKeyPressed = false;
+  }else
   if (this.cursors.left.isDown) {
     this.leftKeyPressed = true;
-  }
+  }else
   if (this.cursors.right.isDown) {
     this.rightKeyPressed = true;
-  }
+  }else
   if (!this.cursors.left.isDown&&!this.cursors.right.isDown){
     this.leftKeyPressed = false;
     this.rightKeyPressed = false;
   }
-
+if (this.cursors.down.isDown&&this.cursors.up.isDown){
+    this.upKeyPressed = false;
+    this.downKeyPressed = false;
+  }else
   if (this.cursors.up.isDown) {
     this.upKeyPressed = true;
-  }
+  }else
   if (this.cursors.down.isDown) {
     this.downKeyPressed = true;
-  }
+  }else
   if (!this.cursors.down.isDown&&!this.cursors.up.isDown){
     this.upKeyPressed = false;
     this.downKeyPressed = false;
@@ -247,8 +287,16 @@ function update() {
 }
 
 function displayPlayers(self, playerInfo, sprite) {
-  const player = self.add.sprite(playerInfo.x, playerInfo.y, sprite).setOrigin(0.5, 0.5).setDisplaySize(53, 40);
+  const player = self.add.sprite(playerInfo.x, playerInfo.y, sprite);//.setOrigin(0.5, 0.5).setDisplaySize(53, 40);
   
   player.playerId = playerInfo.playerId;
   self.players.add(player);
+}
+
+function changeTexture(self, playerInfo, sprite) {
+  self.players.getChildren().forEach(function (player) {
+      if (playerInfo.playerId === player.playerId) {
+        player.setTexture(sprite);
+      }
+  });
 }

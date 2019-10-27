@@ -47,6 +47,7 @@ function create() {
   this.star = this.physics.add.image(randomPosition(mapSize), randomPosition(mapSize), 'star');
 
 
+
   ///half second timer
   this.time.addEvent({
 	  delay: 500,
@@ -96,15 +97,22 @@ function create() {
 
 	if (self.allowTransfer){
 	if (players[player1.playerId].team != players[player2.playerId].team){
-		self.timeSinceTransfer = 0;
-		self.allowInputs = false;
-		self.allowTransfer = false;
 		
-		io.emit('playerUpdates', players);
+		self.timeSinceTransfer = 0;
+		self.allowTransfer = false;
+		self.allowInputs = false;
+		
+		
 		var temp = players[player1.playerId].team;
 		players[player1.playerId].team = players[player2.playerId].team;
 		players[player2.playerId].team = temp;
-		io.emit('currentPlayers', players);
+		
+		players[player1.playerId].timeSinceSpecial = 0;
+		players[player2.playerId].timeSinceSpecial = 0;
+		
+		
+		io.emit('playerUpdates', players);
+		io.emit('changeCurrentPlayers', players);
 	}
 	}
   });
@@ -113,13 +121,13 @@ function create() {
   this.physics.add.overlap(this.players, this.star, function (star, player) {
     
 	players[player.playerId].team = 'red';
-    self.star.setPosition(-500, -500);
-	io.emit('currentPlayers', players);
+    self.star.setPosition(-1000, -1000);
+	io.emit('changeCurrentPlayers', players);
     io.emit('updateScore', self.scores);
     io.emit('starLocation', { x: self.star.x, y: self.star.y });
   });
-
-
+  
+  
 	///when a player connects:
     io.on('connection', function (socket) {
     console.log('a user connected');
@@ -177,8 +185,8 @@ function update() {
 
   
 //blue team input
-  const input = players[player.playerId].input;
-  if (players[player.playerId].team == 'blue' && (this.allowInputs == true)){
+  const input = players[player.playerId].input; 
+  if (players[player.playerId].team == 'blue' && (this.allowInputs == true && !players[player.playerId].isFrozen)) {
     if (input.left) {
             player.setVelocityX(-200);
     }
@@ -209,10 +217,10 @@ function update() {
 			}
 		}	
 	
-	} else if (players[player.playerId].team == 'blue' && this.allowInputs == false){
-		    players.isFrozen = true;
-	        //player.setVelocityX(0);
-	        //player.setVelocityY(0);
+	} else if (players[player.playerId].team == 'blue' && (this.allowInputs == false || players[player.playerId].isFrozen)) {
+		    players[player.playerId].isFrozen = true;
+	        player.setVelocityX(0);
+	        player.setVelocityY(0);
 	
 
 //red team input
@@ -234,26 +242,40 @@ function update() {
     }
 	
 	if (input.space){
-		///need to add function here!!
+		if (players[player.playerId].timeSinceSpecial >= 20) {
+			
+			players[player.playerId].timeSinceSpecial = 0;
+			
+			this.players.getChildren().forEach((playerz) => {
+				if(  Math.abs(player.x - playerz.x) <= 400 && Math.abs(player.y - playerz.y) <= 300){
+					players[playerz.playerId].isFrozen = true;	
+					this.timeSinceTransfer = 0;
+					io.emit('changeCurrentPlayers', players);
+					
+				}
+			});
+		}
 	}
   }
   
+  
+  if (this.allowInputs == false){
+	  players[player.playerId].isFrozen = true;
+	  io.emit('changeCurrentPlayers', players);
+  }
  
 //  transfer and movement cooldown  
-  if (this.timeSinceTransfer == 2) {
-	  this.allowInputs = true;
+  if (this.timeSinceTransfer == 4) {
+	  players[player.playerId].isFrozen = false;
 	  this.allowTransfer = true;
+	  this.allowInputs = true;
+	  io.emit('changeCurrentPlayers', players);
   }
   
   if (players[player.playerId].timeSinceSpecial > 50){
 	  players[player.playerId].timeSinceSpecial = 50;
   }
-	 
-  if (player.isFrozen == true){
-	        player.setVelocityX(0);
-	        player.setVelocityY(0);
-
-  }	  
+	 	  
   
   
 	//set our changes
