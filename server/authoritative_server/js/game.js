@@ -74,13 +74,13 @@ function create() {
   
   ///five second timer
   this.time.addEvent({
-	  delay: 5000,
+	  delay: 1000,
 	  callback: () => {
 		  var scoreArray = [];
 		  self.players.getChildren().forEach((player) => {
-				scoreArray[scoreArray.length] = players[player.playerId].score;
+				scoreArray[scoreArray.length] = players[player.playerId];
 		  });
-		  scoreArray.sort();
+		  scoreArray.sort(function(a, b){return a.score - b.score});
           this.scores.first = scoreArray[scoreArray.length - 1];
           this.scores.second = scoreArray[scoreArray.length - 2];
           this.scores.third = scoreArray[scoreArray.length - 3];
@@ -139,16 +139,14 @@ function create() {
 		down: false,
 		space: false
       },
-	  timeSinceSpecial: 0
+	  timeSinceSpecial: 0,
+	  isFrozen: false
     };
 
 	
     //add player to server
     addPlayer(self, players[socket.id]);
-	for(var i=0;i<players.length;i++){
-		players[i].body.setCollideWorldBounds(true);
-		players[i].body.onWorldBounds = true;
-	}
+	
     socket.emit('currentPlayers', players);
     socket.broadcast.emit('newPlayer', players[socket.id]);
     socket.emit('starLocation', { x: self.star.x, y: self.star.y });
@@ -183,17 +181,21 @@ function update() {
   if (players[player.playerId].team == 'blue' && (this.allowInputs == true)){
     if (input.left) {
             player.setVelocityX(-200);
-    } else if (input.right) {
+    }
+	if (input.right) {
             player.setVelocityX(200);
-    } else {
+    }
+	if (!input.right&&!input.left){
             player.setVelocityX(0);
     }
 
     if (input.up) {
             player.setVelocityY(-200);
-    } else if (input.down) {
+    }
+	if (input.down) {
 			player.setVelocityY(200);	
-	} else {
+	}
+	if (!input.up&&!input.down){
             player.setVelocityY(0);
     }
 	
@@ -208,8 +210,9 @@ function update() {
 		}	
 	
 	} else if (players[player.playerId].team == 'blue' && this.allowInputs == false){
-	        player.setVelocityX(0);
-	        player.setVelocityY(0);
+		    players.isFrozen = true;
+	        //player.setVelocityX(0);
+	        //player.setVelocityY(0);
 	
 
 //red team input
@@ -242,10 +245,15 @@ function update() {
 	  this.allowTransfer = true;
   }
   
-  //if (this.players[player.playerId].timeSinceSpecial > 50){
-	  //this.players[player.playerId].timeSinceSpecial = 50;
-  //}
-	  
+  if (players[player.playerId].timeSinceSpecial > 50){
+	  players[player.playerId].timeSinceSpecial = 50;
+  }
+	 
+  if (player.isFrozen == true){
+	        player.setVelocityX(0);
+	        player.setVelocityY(0);
+
+  }	  
   
   
 	//set our changes

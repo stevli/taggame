@@ -32,6 +32,7 @@ function preload() {
   this.load.image('dude', 'assets/dude2.png');
   this.load.image('bananaMan', 'assets/dude3.png');
   this.load.image('star', 'assets/banana.png');
+  this.load.image('frozen', 'assets/dude4.png');
 }
 
 
@@ -42,23 +43,36 @@ function create() {
   this.socket = io();
   this.players = this.add.group();
   this.cam=this.cameras.main.setBounds(0, 0, mapSize, mapSize).setName('main');
-  this.minimap = this.cameras.add(00, 00, 150, 150).setZoom(0.15).setName('mini');
+  this.minimap = this.cameras.add(00, 00, 150, 150).setZoom(0.1).setName('mini');
   this.cursorsa = this.input.keyboard.createCursorKeys();
   //this.a=0;
 	
-  this.t = this.add.text(600, 15, "Leaderboard:\n" + "0\n" + "0\n" + "0\n", { font: "32px Arial", fill: "#ffffff", align: "center" });
+  this.t = this.add.text(600, 15, "Leaderboard:", { font: "32px Arial", fill: "#ffffff", align: "center" });
+  this.one = this.add.text(675, 45, "0", { font: "32px Arial", fill: "#ffffff", align: "center" });
+  this.two = this.add.text(675, 75, "0", { font: "32px Arial", fill: "#ffffff", align: "center" });
+  this.third = this.add.text(675, 105, "0", { font: "32px Arial", fill: "#ffffff", align: "center" });
+  
   this.t.fixedToCamera = true;
   this.t.setScrollFactor(0);
-  
+  this.one.fixedToCamera = true;
+  this.one.setScrollFactor(0);
+  this.two.fixedToCamera = true;
+  this.two.setScrollFactor(0);
+  this.third.fixedToCamera = true;
+  this.third.setScrollFactor(0);
   
   this.socket.on('currentPlayers', function (players) {
     Object.keys(players).forEach(function (id) {
       if (players[id].team === 'red') {
         displayPlayers(self, players[id], 'bananaMan');
 		
-      } else {
-        displayPlayers(self, players[id], 'dude');
-      }
+      } else if (players[id].team === 'blue') {
+		 if (players[id].isFrozen === true) {
+			 displayPlayers(self, players[id], 'frozen');
+		 } else {
+         displayPlayers(self, players[id], 'dude');
+      } 
+	  }
     });
   });
 
@@ -78,7 +92,7 @@ function create() {
 	Object.keys(players).forEach(function (id) {
       self.players.getChildren().forEach(function (player) {
         if (players[id].playerId === player.playerId) {
-          player.setRotation(players[id].rotation);
+          //player.setRotation(players[id].rotation);
           player.setPosition(players[id].x, players[id].y);
         }
 		if (players[id].playerId === self.socket.id) {
@@ -92,7 +106,85 @@ function create() {
   });
 
   this.socket.on('updateScore', function (scores) {
-    self.t.setText("Leaderboard:\n" + scores.first + "\n" + scores.second + "\n" + scores.third);
+	//console.log(self.socket.id === scores.first.playerId);
+    //console.log(scores.first + " " + scores.second + " " + scores.third);
+	if (scores.second === undefined){
+		if (self.socket.id === scores.first.playerId){
+			//console.log("11");
+		    self.one.setText(scores.first.score);
+			self.one.setFill("#ff0000");
+	    }
+		else{
+			//console.log("12");
+			self.one.setText(scores.first.score);
+			self.one.setFill("#ffffff");
+		}
+	}
+	else if (scores.third === undefined){
+		//console.log("third is undefined")
+		if (self.socket.id === scores.first.playerId){
+			//console.log("21");
+		    self.one.setText(scores.first.score);
+			self.two.setText(scores.second.score);
+			self.one.setFill("#ff0000");
+			self.two.setFill("#ffffff");
+	    }
+	    else if (self.socket.id === scores.second.playerId){
+			//console.log("22");
+		    self.one.setText(scores.first.score);
+			self.one.setFill("#ffffff");
+			self.two.setText(scores.second.score);
+			self.two.setFill("#ff0000");
+	    }
+		else{
+			//console.log("23");
+			self.one.setText(scores.first.score);
+			self.two.setText(scores.second.score);
+			self.one.setFill("#ffffff");
+			self.two.setFill("#ffffff");
+		}
+	}
+	else {
+		//console.log(self.socket.id === scores.first.playerId);
+		//console.log(scores.first.playerId);
+		if (self.socket.id === scores.first.playerId){
+			//console.log("31");
+		    self.one.setText(scores.first.score);
+			self.one.setFill("#ff0000");
+			self.two.setText(scores.second.score);
+			self.two.setFill("#ffffff");
+			self.third.setText(scores.third.score);
+			self.third.setFill("#ffffff");
+	    }
+	    else if (self.socket.id === scores.second.playerId){
+			//console.log("32");
+		    self.one.setText(scores.first.score);
+			self.one.setFill("#ffffff");
+			self.two.setText(scores.second.score);
+			self.two.setFill("#ff0000");
+			self.third.setText(scores.third.score);
+			self.third.setFill("#ffffff");
+	    }
+	    else if (self.socket.id === scores.third.playerId){
+			//console.log("33");
+	        self.one.setText(scores.first.score);
+			self.one.setFill("#ffffff");
+			self.two.setText(scores.second.score);
+			self.two.setFill("#ffffff");
+			self.third.setText(scores.third.score);
+			self.third.setFill("#ff0000");
+	    }
+		else{
+			//console.log("34");
+			self.one.setText(scores.first.score);
+			self.one.setFill("#ffffff");
+			self.two.setText(scores.second.score);
+			self.two.setFill("#ffffff");
+			self.third.setText(scores.third.score);
+			self.third.setFill("#ffffff");
+		}
+	}
+	
   });
 
   this.socket.on('starLocation', function (starLocation) {
@@ -121,18 +213,22 @@ function update() {
 
   if (this.cursors.left.isDown) {
     this.leftKeyPressed = true;
-  } else if (this.cursors.right.isDown) {
+  }
+  if (this.cursors.right.isDown) {
     this.rightKeyPressed = true;
-  } else {
+  }
+  if (!this.cursors.left.isDown&&!this.cursors.right.isDown){
     this.leftKeyPressed = false;
     this.rightKeyPressed = false;
   }
 
   if (this.cursors.up.isDown) {
     this.upKeyPressed = true;
-  } else if (this.cursors.down.isDown) {
+  }
+  if (this.cursors.down.isDown) {
     this.downKeyPressed = true;
-  } else {
+  }
+  if (!this.cursors.down.isDown&&!this.cursors.up.isDown){
     this.upKeyPressed = false;
     this.downKeyPressed = false;
   }
