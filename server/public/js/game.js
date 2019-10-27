@@ -1,3 +1,5 @@
+var mapSize = 3000;
+//CLIENT
 var config = {
   type: Phaser.AUTO,
   parent: 'phaser-example',
@@ -9,8 +11,8 @@ var config = {
             setBounds: {
                 x: 0,
                 y: 0,
-                width: 1000,
-                height: 1000,
+                width: mapSize,
+                height: mapSize
             }
         }
     },
@@ -23,43 +25,45 @@ var config = {
 
 var game = new Phaser.Game(config);
 
+
+//load assets
 function preload() {
   this.load.image('background', 'assets/grd.png');
-  this.load.image('ship', 'assets/dude2.png');
-  this.load.image('otherPlayer', 'assets/dude3.png');
-  this.load.image('star', 'assets/star_gold.png');
+  this.load.image('dude', 'assets/dude2.png');
+  this.load.image('bananaMan', 'assets/dude3.png');
+  this.load.image('star', 'assets/banana.png');
 }
+
+
 
 function create() {
   var self = this;
-  //this.allowInput = true;
-  this.add.image(750,750,'background');
+  this.add.image((mapSize / 2),(mapSize / 2),'background');
   this.socket = io();
   this.players = this.add.group();
-  this.cam=this.cameras.main.setBounds(0,0,1000,1000).setName('main');
+  this.cam=this.cameras.main.setBounds(0, 0, mapSize, mapSize).setName('main');
   this.minimap = this.cameras.add(00, 00, 150, 150).setZoom(0.15).setName('mini');
   this.cursorsa = this.input.keyboard.createCursorKeys();
-  this.a=0;
+  //this.a=0;
 	
-	var t = this.add.text(600, 15, "Leaderboard:", { font: "32px Arial", fill: "#ffffff", align: "center" });
-    t.fixedToCamera = true;
-    t.setScrollFactor(0);
-  //this.blueScoreText = this.add.text(16, 16, '', { fontSize: '32px', fill: '#0000FF' });
-  //this.redScoreText = this.add.text(584, 16, '', { fontSize: '32px', fill: '#FF0000' });
-
+  this.t = this.add.text(600, 15, "Leaderboard:\n" + "0\n" + "0\n" + "0\n", { font: "32px Arial", fill: "#ffffff", align: "center" });
+  this.t.fixedToCamera = true;
+  this.t.setScrollFactor(0);
+  
+  
   this.socket.on('currentPlayers', function (players) {
     Object.keys(players).forEach(function (id) {
       if (players[id].team === 'red') {
-        displayPlayers(self, players[id], 'otherPlayer');
+        displayPlayers(self, players[id], 'bananaMan');
 		
       } else {
-        displayPlayers(self, players[id], 'ship');
+        displayPlayers(self, players[id], 'dude');
       }
     });
   });
 
   this.socket.on('newPlayer', function (playerInfo) {
-    displayPlayers(self, playerInfo, 'ship');
+    displayPlayers(self, playerInfo, 'dude');
   });
 
   this.socket.on('disconnect', function (playerId) {
@@ -69,10 +73,6 @@ function create() {
       }
     });
   });
-  /*this.socket.on('inputchange', function () {
-	  self.allowInput = (!self.allowInput);
-	  console.log(self.allowInput);
-  });*/
   this.socket.on('playerUpdates', function (players) {
     
 	Object.keys(players).forEach(function (id) {
@@ -82,9 +82,8 @@ function create() {
           player.setPosition(players[id].x, players[id].y);
         }
 		if (players[id].playerId === self.socket.id) {
-		  if (self.cursorsa.space.isDown) {
-			console.log(players[id].x);
-		  }
+		  //if (self.cursorsa.space.isDown) {
+		  //}
 			self.cam.startFollow(players[self.socket.id]);
 			self.minimap.startFollow(players[self.socket.id]);
 		}
@@ -93,22 +92,16 @@ function create() {
   });
 
   this.socket.on('updateScore', function (scores) {
-    //self.blueScoreText.setText('Blue: ' + scores.blue);
-    //self.redScoreText.setText('Red: ' + scores.red);
+    self.t.setText("Leaderboard:\n" + scores.first + "\n" + scores.second + "\n" + scores.third);
   });
 
   this.socket.on('starLocation', function (starLocation) {
-	console.log('star spawned');
-	//if(starLocation.x!=-100&&starLocation.y!=-100){
 		if (!self.star) {
 		  self.star = self.add.image(starLocation.x, starLocation.y, 'star');
 		} else {
 		  self.star.setPosition(starLocation.x, starLocation.y);
 		}
-	//}else{
-		//if(self.star)
-			//self.star.destory();
-	//}
+	
   });
 
   this.cursors = this.input.keyboard.createCursorKeys();
@@ -117,8 +110,6 @@ function create() {
   this.upKeyPressed = false;
   this.downKeyPressed = false;
   this.spaceKeyPressed = false;
-  //lol
-  //this.cam.startFollow(this.players[self.socket.id]);
 }
 
 function update() {
@@ -156,16 +147,12 @@ function update() {
   if (left !== this.leftKeyPressed || right !== this.rightKeyPressed || up !== this.upKeyPressed || down !== this.downKeyPressed || space !== this.spaceKeyPressed) {
     this.socket.emit('playerInput', { left: this.leftKeyPressed , right: this.rightKeyPressed, up: this.upKeyPressed, down: this.downKeyPressed , space: this.spaceKeyPressed });
   }
-  //this.cam.startFollow(this.players[self.socket.id]);
-  //this.cam.main.scrollX = this.players[this.socket.id].x;
-  //this.cameras.main.scrollY = this.players[id].y;
+
 }
 
 function displayPlayers(self, playerInfo, sprite) {
   const player = self.add.sprite(playerInfo.x, playerInfo.y, sprite).setOrigin(0.5, 0.5).setDisplaySize(53, 40);
-  //if (playerInfo.team === 'blue') player.setTint(0x0000ff);
-  //else player.setTint(0xff0000);
+  
   player.playerId = playerInfo.playerId;
   self.players.add(player);
-  //self.cam.startFollow(player);
 }

@@ -1,5 +1,10 @@
+var mapSize = 3000;
+
+//SERVER
+
+
 const players = {};
-//asdfasf
+
 const config = {
   type: Phaser.HEADLESS,
   parent: 'phaser-example',
@@ -13,8 +18,8 @@ const config = {
 	  setBounds: {
             x: 0,
             y: 0,
-            width: 1000,
-            height: 1000,
+            width: mapSize,
+            height: mapSize
       }
     }
   },
@@ -27,9 +32,8 @@ const config = {
 };
 
 function preload() {
-  this.load.image('ship', 'assets/spaceShips_001.png');
-  this.load.image('star', 'assets/star_gold.png');
-  //this.physics.world.setBoundsCollision(true,true,true,true);
+  this.load.image('ship', 'assets/dude2.png');
+  this.load.image('star', 'assets/banana.png');
 }
 
 function create() {
@@ -37,37 +41,75 @@ function create() {
   this.players = this.physics.add.group();
   this.allowInputs = true;
   this.allowTransfer = true;
-  
+  this.timeSinceStart = 0;
+  this.timeSinceTransfer = 0;
   this.physics.world.setBoundsCollision(true,true,true,true);
+  this.star = this.physics.add.image(randomPosition(mapSize), randomPosition(mapSize), 'star');
+
+
+  ///half second timer
+  this.time.addEvent({
+	  delay: 500,
+	  callback: () => {
+		  this.timeSinceStart++;
+		  this.timeSinceTransfer++;
+		  self.players.getChildren().forEach((player) => {
+				if (players[player.playerId].team == 'red') {
+					players[player.playerId].score += 1;
+				}
+		    players[player.playerId].timeSinceSpecial += 1;
+		  });
+	  },
+      loop: true
+  });
+	  
 
   this.scores = {
-    blue: 0,
-    red: 0
+    first: 0,
+    second: 0,
+	third: 0,
   };
-
-  this.star = this.physics.add.image(randomPosition(1000), randomPosition(1000), 'star');
+  
+  
+  
+  ///five second timer
+  this.time.addEvent({
+	  delay: 5000,
+	  callback: () => {
+		  var scoreArray = [];
+		  self.players.getChildren().forEach((player) => {
+				scoreArray[scoreArray.length] = players[player.playerId].score;
+		  });
+		  scoreArray.sort();
+          this.scores.first = scoreArray[scoreArray.length - 1];
+          this.scores.second = scoreArray[scoreArray.length - 2];
+          this.scores.third = scoreArray[scoreArray.length - 3];
+          io.emit('updateScore', this.scores);
+	  },
+      loop: true
+  });
+  
  
+ 
+  ///player collision event
   this.physics.add.collider(this.players, this.players, function(player1, player2) {
-	//console.log(players[player1.playerId].team);
+
 	if (self.allowTransfer){
-	//io.emit('inputchange');
-	self.allowTransfer = false;
 	if (players[player1.playerId].team != players[player2.playerId].team){
+		self.timeSinceTransfer = 0;
 		self.allowInputs = false;
-		//players[player1.playerId].y = randomPosition(1000);
-		//players[player1.playerId].x = randomPosition(1000);
-		//console.log(players[player1.playerId].x);
+		self.allowTransfer = false;
+		
 		io.emit('playerUpdates', players);
 		var temp = players[player1.playerId].team;
 		players[player1.playerId].team = players[player2.playerId].team;
 		players[player2.playerId].team = temp;
 		io.emit('currentPlayers', players);
 	}
-	//console.log(players[player1.playerId].x);
-	//console.log(players[player1.playerId].team);
 	}
   });
   
+  ///banana collision event
   this.physics.add.overlap(this.players, this.star, function (star, player) {
     
 	players[player.playerId].team = 'red';
@@ -77,13 +119,17 @@ function create() {
     io.emit('starLocation', { x: self.star.x, y: self.star.y });
   });
 
-  io.on('connection', function (socket) {
+
+	///when a player connects:
+    io.on('connection', function (socket) {
     console.log('a user connected');
-    // create a new player and add it to our players object
+	
+	
+    // create a new player and add it to players object
     players[socket.id] = {
-      hp: 1,
-      x: Math.floor(Math.random() * 700) + 50,
-      y: Math.floor(Math.random() * 500) + 50,
+      score: 0,
+      x: Math.floor(Math.random() * (mapSize - 100)) + 50,
+      y: Math.floor(Math.random() * (mapSize - 100)) + 50,
       playerId: socket.id,
       team: 'blue',
       input: {
@@ -92,32 +138,32 @@ function create() {
         up: false,
 		down: false,
 		space: false
-      }
+      },
+	  timeSinceSpecial: 0
     };
-    /// add player to server
+
+	
+    //add player to server
     addPlayer(self, players[socket.id]);
 	for(var i=0;i<players.length;i++){
 		players[i].body.setCollideWorldBounds(true);
 		players[i].body.onWorldBounds = true;
 	}
-    // send the players object to the new player
     socket.emit('currentPlayers', players);
-    // update all other players of the new player
     socket.broadcast.emit('newPlayer', players[socket.id]);
-    // send the star object to the new player
     socket.emit('starLocation', { x: self.star.x, y: self.star.y });
-    // send the current scores
     socket.emit('updateScore', self.scores);
 
+
+    // disconnect from sever
     socket.on('disconnect', function () {
       console.log('user disconnected');
-      // remove player from server
       removePlayer(self, socket.id);
-      // remove this player from our players object
       delete players[socket.id];
-      // emit a message to all players to remove this player
       io.emit('disconnect', socket.id);
     });
+
+
 
     // when a player moves, update the player data
     socket.on('playerInput', function (inputData) {
@@ -128,62 +174,86 @@ function create() {
 
 function update() {
 	
+  ///handle player input
   this.players.getChildren().forEach((player) => {
+
+  
+//blue team input
   const input = players[player.playerId].input;
-  console.log(this.allowInputs);
   if (players[player.playerId].team == 'blue' && (this.allowInputs == true)){
     if (input.left) {
-      player.setVelocityX(-200);
+            player.setVelocityX(-200);
     } else if (input.right) {
-      player.setVelocityX(200);
+            player.setVelocityX(200);
     } else {
-      player.setVelocityX(0);
+            player.setVelocityX(0);
     }
 
     if (input.up) {
-	  //this.physics.velocityFromRotation(player.rotation + 1.5, 200, player.body.acceleration);
             player.setVelocityY(-200);
     } else if (input.down) {
-			player.setVelocityY(200);
-		
+			player.setVelocityY(200);	
 	} else {
-      player.setVelocityY(0);
+            player.setVelocityY(0);
     }
 	
-	//if (input.space) {
-		//player.
-			
-	//}
-  }
-  else if (players[player.playerId].team == 'blue' && (this.allowInputs == false)){
-	player.setVelocityX(0);
-	player.setVelocityY(0);
+	if (input.space) {
+			if (players[player.playerId].timeSinceSpecial  >= 6){
+				
+					player.setVelocityY(player.body.velocity.y*5);
+					player.setVelocityX(player.body.velocity.x*5);
+					players[player.playerId].timeSinceSpecial -= 1;
+				
+			}
+		}	
 	
-  }
-  else if (players[player.playerId].team == 'red'){
+	} else if (players[player.playerId].team == 'blue' && this.allowInputs == false){
+	        player.setVelocityX(0);
+	        player.setVelocityY(0);
+	
+
+//red team input
+  } else if (players[player.playerId].team == 'red'){
 	if (input.left) {
-      player.setVelocityX(-250);
+			player.setVelocityX(-350);
     } else if (input.right) {
-      player.setVelocityX(250);
+			player.setVelocityX(350);
     } else {
-      player.setVelocityX(0);
+			player.setVelocityX(0);
     }
 	
 	if (input.up) {
-	  //this.physics.velocityFromRotation(player.rotation + 1.5, 200, player.body.acceleration);
-      player.setVelocityY(-250);
+			player.setVelocityY(-350);
     } else if (input.down) {
-	  player.setVelocityY(250);
+			player.setVelocityY(350);
 	} else {
-      player.setVelocityY(0);
+			player.setVelocityY(0);
     }
+	
+	if (input.space){
+		///need to add function here!!
+	}
   }
   
-	//if(player.x>=0||player.x<=1000)
-		players[player.playerId].x = player.x;
-	//if(player.y>=0||player.y<=1000)
-		players[player.playerId].y = player.y;
-    players[player.playerId].rotation = player.rotation;
+ 
+//  transfer and movement cooldown  
+  if (this.timeSinceTransfer == 2) {
+	  this.allowInputs = true;
+	  this.allowTransfer = true;
+  }
+  
+  //if (this.players[player.playerId].timeSinceSpecial > 50){
+	  //this.players[player.playerId].timeSinceSpecial = 50;
+  //}
+	  
+  
+  
+	//set our changes
+	players[player.playerId].x = player.x;
+	players[player.playerId].y = player.y;
+	
+	
+	//world boundaries
 	if(player.y<10){
 		players[player.playerId].y=10;
 		player.setVelocityY(10);
@@ -192,37 +262,28 @@ function update() {
 		players[player.playerId].x=10;
 		player.setVelocityX(10);
 	}
-	if(player.y>990){
-		players[player.playerId].y=990;
+	if(player.y > (mapSize - 10)){
+		players[player.playerId].y = mapSize - 10;
 		player.setVelocityY(-10);
 	}
-	if(player.x>990){
-		players[player.playerId].x=990;
+	if(player.x > (mapSize - 10)){
+		players[player.playerId].x = mapSize - 10;
 		player.setVelocityX(-10);
 	}
+	
   });
-  //this.physics.world.wrap(this.players, 5);
-  //this.physics.world.setBoundsCollision(true,true,true,true);
-  /*this.physics.add.collider(this.players, this.players, function(player1, player2) {
-	//console.log(players[player1.playerId].team);
-	if (players[player1.playerId].team != players[player2.playerId].team){
-		players[player1.playerId].y = randomPosition(1000);
-		players[player1.playerId].x = randomPosition(1000);
-		//console.log(players[player1.playerId].x);
-		//io.emit('playerUpdates', players);
-		var temp = players[player1.playerId].team;
-		players[player1.playerId].team = players[player2.playerId].team;
-		players[player2.playerId].team = temp;
-		io.emit('currentPlayers', players);
-	}
-	//console.log(players[player1.playerId].x);
-	//console.log(players[player1.playerId].team);
-  });*/
+  
   io.emit('playerUpdates', players);
 }
+
+
+
+///other functions      
 function randomPosition(max) {
   return Math.floor(Math.random() * max) + 50;
 }
+
+
 
 function handlePlayerInput(self, playerId, input) {
   self.players.getChildren().forEach((player) => {
@@ -232,32 +293,33 @@ function handlePlayerInput(self, playerId, input) {
   });
 }
 
+
+
 function addPlayer(self, playerInfo) {
   const player = self.physics.add.image(playerInfo.x, playerInfo.y, 'ship').setOrigin(0.5, 0.5).setDisplaySize(53, 40);
-  //player.setDrag(100);
-  //player.setAngularDrag(100);
-  //player.setMaxVelocity(200);
   player.setCollideWorldBounds(true);
   player.onWorldBounds = true;
   player.playerId = playerInfo.playerId;
   self.players.add(player);
 }
 
+
+
 function removePlayer(self, playerId) {
   self.players.getChildren().forEach((player) => {
     if (playerId === player.playerId) {
-		//console.log('func worked but didnt');
-		//console.log(players[player.playerId].team);
+		
 		if (players[player.playerId].team === 'red'){
 			self.star.setPosition(players[player.playerId].x, players[player.playerId].y);
 			self.allowInputs = true;
-			console.log(this.allowInputs);
 			io.emit('starLocation', { x: self.star.x, y: self.star.y });
 		}
       player.destroy();
     }
   });
 }
+
+
 
 const game = new Phaser.Game(config);
 window.gameLoaded();
